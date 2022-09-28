@@ -38,7 +38,7 @@ end
 
 
 --[[function registerOptions()
-	OptionsManager.registerOption2('NO_TARGET', false, 'option_header_game', 'opt_ifn_no_target', 'option_entry_cycler', 
+	OptionsManager.registerOption2('NO_TARGET', false, 'option_header_game', 'opt_ifn_no_target', 'option_entry_cycler',
 		{ labels = 'opt_val_off', values = 'off', baselabel = 'opt_val_on', baseval = 'on', default = 'off' })
 end]]
 
@@ -52,6 +52,10 @@ function onEffectActorStartTurn(nodeActor, nodeEffect)
 			break;
 		elseif rEffectComp.type == "IFTN" then
 			break;
+		elseif rEffectComp.type == "IFS" then
+			break;
+		elseif rEffectComp.type == "IFSN" then
+			break;
 		elseif rEffectComp.type == "IF" then
 			local rActor = ActorManager.resolveActor(nodeActor);
 			if not EffectManager5E.checkConditional(rActor, nodeEffect, rEffectComp.remainder) then
@@ -62,7 +66,7 @@ function onEffectActorStartTurn(nodeActor, nodeEffect)
 			if EffectManager5E.checkConditional(rActor, nodeEffect, rEffectComp.remainder) then
 				break;
 			end
-		
+
 		-- Ongoing damage and regeneration
 		elseif rEffectComp.type == "DMGO" or rEffectComp.type == "REGEN" then
 			local nActive = DB.getValue(nodeEffect, "isactive", 0);
@@ -72,7 +76,7 @@ function onEffectActorStartTurn(nodeActor, nodeEffect)
 						print("hi mom")
 					end
 					local rActor = ActorManager.resolveActor(nodeActor);
-					if (ActorHealthManager.getWoundPercent(rActor) >= 1) then 
+					if (ActorHealthManager.getWoundPercent(rActor) >= 1) then
 						break;
 					end
 				end
@@ -107,9 +111,9 @@ function removeEffectByType(nodeCT, sEffectType)
 		if ((not ifnCompatability["AdvancedEffects"] and nActive ~= 0) or (ifnCompatability["AdvancedEffects"] and EffectManagerADND.isValidCheckEffect(rActor,v))) then
 		-- END COMPATIBILITY
 			local s = DB.getValue(nodeEffect, "label", "");
-			
+
 			local aCompsToDelete = {};
-			
+
 			local aEffectComps = EffectManager.parseEffect(s);
 			local nComp = 1;
 			for _,sEffectComp in ipairs(aEffectComps) do
@@ -118,6 +122,10 @@ function removeEffectByType(nodeCT, sEffectType)
 				if rEffectComp.type == "IFT" then
 					break;
 				elseif rEffectComp.type == "IFTN" then
+					break;
+				elseif rEffectComp.type == "IFS" then
+					break;
+				elseif rEffectComp.type == "IFSN" then
 					break;
 				elseif rEffectComp.type == "IF" then
 					local rActor = ActorManager.resolveActor(nodeActor);
@@ -129,15 +137,15 @@ function removeEffectByType(nodeCT, sEffectType)
 					if EffectManager5E.checkConditional(rActor, nodeEffect, rEffectComp.remainder) then
 						break;
 					end
-				
+
 				-- Check for effect match
 				elseif rEffectComp.type == sEffectType then
 					table.insert(aCompsToDelete, nComp);
 				end
-				
+
 				nComp = nComp + 1;
 			end
-			
+
 			-- Delete portion of effect that matches (or register for full deletion)
 			if #aCompsToDelete >= #aEffectComps then
 				table.insert(aEffectsToDelete, nodeEffect);
@@ -149,13 +157,13 @@ function removeEffectByType(nodeCT, sEffectType)
 						table.insert(aNewEffectComps, aEffectComps[i]);
 					end
 				end
-				
+
 				local sNewEffect = EffectManager.rebuildParsedEffect(aNewEffectComps);
 				DB.setValue(nodeEffect, "label", "string", sNewEffect);
 			end
 		end
 	end
-	
+
 	for _,v in ipairs(aEffectsToDelete) do
 		v.delete();
 	end
@@ -166,7 +174,7 @@ function getEffectsByType(rActor, sEffectType, aFilter, rFilterActor, bTargetedO
 		return {};
 	end
 	local results = {};
-	
+
 	-- Set up filters
 	local aRangeFilter = {};
 	local aOtherFilter = {};
@@ -225,6 +233,13 @@ function getEffectsByType(rActor, sEffectType, aFilter, rFilterActor, bTargetedO
 							break;
 						end
 						bTargeted = true;
+					elseif rEffectComp.type == "IFS" then
+						if not rActor then
+							break;
+						end
+						if not EffectManager5E.checkConditional(rActor, v, rEffectComp.remainder) then
+							break;
+						end
 					elseif rEffectComp.type == "IFTN" then
 						if --[[OptionsManager.isOption('NO_TARGET', 'off') and]] not rFilterActor then
 							break;
@@ -233,7 +248,14 @@ function getEffectsByType(rActor, sEffectType, aFilter, rFilterActor, bTargetedO
 							break;
 						end
 						bTargeted = true;
-					
+					elseif rEffectComp.type == "IFSN" then
+						if not rActor then
+							break;
+						end
+						if EffectManager5E.checkConditional(rActor, v, rEffectComp.remainder) then
+							break;
+						end
+
 					-- Compare other attributes
 					else
 						-- Strip energy/bonus types for subtype comparison
@@ -245,7 +267,7 @@ function getEffectsByType(rActor, sEffectType, aFilter, rFilterActor, bTargetedO
 							if #s > 0 and ((s:sub(1,1) == "!") or (s:sub(1,1) == "~")) then
 								s = s:sub(2);
 							end
-							if StringManager.contains(DataCommon.dmgtypes, s) or s == "all" or 
+							if StringManager.contains(DataCommon.dmgtypes, s) or s == "all" or
 									StringManager.contains(DataCommon.bonustypes, s) or
 									StringManager.contains(DataCommon.conditions, s) or
 									StringManager.contains(DataCommon.connectors, s) then
@@ -255,10 +277,10 @@ function getEffectsByType(rActor, sEffectType, aFilter, rFilterActor, bTargetedO
 							else
 								table.insert(aEffectOtherFilter, s);
 							end
-							
+
 							j = j + 1;
 						end
-					
+
 						-- Check for match
 						local comp_match = false;
 						if rEffectComp.type == sEffectType then
@@ -269,7 +291,7 @@ function getEffectsByType(rActor, sEffectType, aFilter, rFilterActor, bTargetedO
 							else
 								comp_match = true;
 							end
-						
+
 							-- Check filters
 							if #aEffectRangeFilter > 0 then
 								local bRangeMatch = false;
@@ -336,7 +358,7 @@ function getEffectsByType(rActor, sEffectType, aFilter, rFilterActor, bTargetedO
 			end -- END TARGET CHECK
 		end  -- END ACTIVE CHECK
 	end  -- END EFFECT LOOP
-	
+
 	-- RESULTS
 	return results;
 end
@@ -346,7 +368,7 @@ function hasEffect(rActor, sEffect, rTarget, bTargetedOnly, bIgnoreEffectTargets
 		return false;
 	end
 	local sLowerEffect = sEffect:lower();
-	
+
 	-- Iterate through each effect
 	local aMatch = {};
 	for _,v in pairs(DB.getChildren(ActorManager.getCTNode(rActor), "effects")) do
@@ -381,11 +403,25 @@ function hasEffect(rActor, sEffect, rTarget, bTargetedOnly, bIgnoreEffectTargets
 					if not EffectManager5E.checkConditional(rTarget, v, rEffectComp.remainder, rActor) then
 						break;
 					end
+				elseif rEffectComp.type == "IFS" then
+					if not rActor then
+						break;
+					end
+					if not EffectManager5E.checkConditional(rActor, v, rEffectComp.remainder) then
+						break;
+					end
 				elseif rEffectComp.type == "IFTN" then
 					if OptionsManager.isOption('NO_TARGET', 'off') and not rTarget then
 						break;
 					end
 					if EffectManager5E.checkConditional(rTarget, v, rEffectComp.remainder, rActor) then
+						break;
+					end
+				elseif rEffectComp.type == "IFSN" then
+					if not rActor then
+						break;
+					end
+					if EffectManager5E.checkConditional(rActor, v, rEffectComp.remainder) then
 						break;
 					end
 
@@ -399,9 +435,9 @@ function hasEffect(rActor, sEffect, rTarget, bTargetedOnly, bIgnoreEffectTargets
 						nMatch = kEffectComp;
 					end
 				end
-				
+
 			end
-			
+
 			-- If matched, then remove one-off effects
 			if nMatch > 0 then
 				if nActive == 2 then
@@ -420,7 +456,7 @@ function hasEffect(rActor, sEffect, rTarget, bTargetedOnly, bIgnoreEffectTargets
 			end
 		end
 	end
-	
+
 	if #aMatch > 0 then
 		return true;
 	end
@@ -431,7 +467,7 @@ function checkConditionalHelper(rActor, sEffect, rTarget, aIgnore)
 	if not rActor then
 		return false;
 	end
-	
+
 	if ifnCompatability["AdvancedEffects"] then
 		local bReturn = false;
 	end
@@ -467,11 +503,25 @@ function checkConditionalHelper(rActor, sEffect, rTarget, aIgnore)
 					if not EffectManager5E.checkConditional(rTarget, v, rEffectComp.remainder, rActor, aIgnore) then
 						break;
 					end
+				elseif rEffectComp.type == "IFS" then
+					if not rActor then
+						break;
+					end
+					if not EffectManager5E.checkConditional(rActor, v, rEffectComp.remainder, nil, aIgnore) then
+						break;
+					end
 				elseif rEffectComp.type == "IFTN" then
 					if OptionsManager.isOption('NO_TARGET', 'off') and not rTarget then
 						break;
 					end
 					if EffectManager5E.checkConditional(rTarget, v, rEffectComp.remainder, rActor, aIgnore) then
+						break;
+					end
+				elseif rEffectComp.type == "IFSN" then
+					if not rActor then
+						break;
+					end
+					if EffectManager5E.checkConditional(rActor, v, rEffectComp.remainder, nil, aIgnore) then
 						break;
 					end
 
@@ -488,6 +538,6 @@ function checkConditionalHelper(rActor, sEffect, rTarget, aIgnore)
 			end
 		end
 	end
-	
+
 	return false;
 end
